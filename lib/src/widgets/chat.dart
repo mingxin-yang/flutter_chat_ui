@@ -96,7 +96,10 @@ class Chat extends StatefulWidget {
     this.useTopSafeAreaInset,
     this.videoMessageBuilder,
     this.makeMsgStartFromTop = false,
+    this.messageWidth,
   });
+
+  final int? messageWidth;
 
   /// See [Message.audioMessageBuilder].
   final Widget Function(types.AudioMessage, {required int messageWidth})?
@@ -558,8 +561,8 @@ class ChatState extends State<Chat> {
       } else {
         final messageWidth =
             widget.showUserAvatars && message.author.id != widget.user.id
-                ? min(constraints.maxWidth * 0.72, 440).floor()
-                : min(constraints.maxWidth * 0.78, 440).floor();
+                ? widget.messageWidth ? widget.messageWidth * 0.72 : min(constraints.maxWidth * 0.72, 440).floor()
+                : widget.messageWidth ? widget.messageWidth * 0.78 : min(constraints.maxWidth * 0.78, 440).floor();
 
         messageWidget = Message(
           audioMessageBuilder: widget.audioMessageBuilder,
