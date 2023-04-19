@@ -49,7 +49,7 @@ class _InputState extends State<Input> {
     onKeyEvent: (node, event) {
       if (event.physicalKey == PhysicalKeyboardKey.enter &&
           !HardwareKeyboard.instance.physicalKeysPressed.any(
-            (el) => <PhysicalKeyboardKey>{
+                (el) => <PhysicalKeyboardKey>{
               PhysicalKeyboardKey.shiftLeft,
               PhysicalKeyboardKey.shiftRight,
             }.contains(el),
@@ -94,9 +94,9 @@ class _InputState extends State<Input> {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-        onTap: () => _inputFocusNode.requestFocus(),
-        child: _inputBuilder(),
-      );
+    onTap: () => _inputFocusNode.requestFocus(),
+    child: _inputBuilder(),
+  );
 
   void _handleSendButtonVisibilityModeChange() {
     _textController.removeListener(_handleTextControllerChange);
@@ -138,24 +138,24 @@ class _InputState extends State<Input> {
         .copyWith(left: 16, right: 16);
     final safeAreaInsets = isMobile
         ? EdgeInsets.fromLTRB(
-            query.padding.left,
-            0,
-            query.padding.right,
-            query.viewInsets.bottom + query.padding.bottom,
-          )
+      query.padding.left,
+      0,
+      query.padding.right,
+      query.viewInsets.bottom + query.padding.bottom,
+    )
         : EdgeInsets.zero;
     final textPadding = InheritedChatTheme.of(context)
         .theme
         .inputPadding
         .copyWith(left: 0, right: 0)
         .add(
-          EdgeInsets.fromLTRB(
-            widget.onAttachmentPressed != null ? 0 : 24,
-            0,
-            _sendButtonVisible ? 0 : 24,
-            0,
-          ),
-        );
+      EdgeInsets.fromLTRB(
+        widget.onAttachmentPressed != null ? 0 : 24,
+        0,
+        _sendButtonVisible ? 0 : 24,
+        0,
+      ),
+    );
 
     return Focus(
       autofocus: true,
@@ -166,7 +166,7 @@ class _InputState extends State<Input> {
           color: InheritedChatTheme.of(context).theme.inputBackgroundColor,
           child: Container(
             decoration:
-                InheritedChatTheme.of(context).theme.inputContainerDecoration,
+            InheritedChatTheme.of(context).theme.inputContainerDecoration,
             padding: safeAreaInsets,
             child: Row(
               textDirection: TextDirection.ltr,
@@ -189,19 +189,19 @@ class _InputState extends State<Input> {
                           .theme
                           .inputTextDecoration
                           .copyWith(
-                            hintStyle: InheritedChatTheme.of(context)
-                                .theme
-                                .inputTextStyle
-                                .copyWith(
-                                  color: InheritedChatTheme.of(context)
-                                      .theme
-                                      .inputTextColor
-                                      .withOpacity(0.5),
-                                ),
-                            hintText:
-                                InheritedL10n.of(context).l10n.inputPlaceholder,
-                          ),
-                      focusNode: _inputFocusNode,
+                        hintStyle: InheritedChatTheme.of(context)
+                            .theme
+                            .inputTextStyle
+                            .copyWith(
+                          color: InheritedChatTheme.of(context)
+                              .theme
+                              .inputTextColor
+                              .withOpacity(0.5),
+                        ),
+                        hintText:
+                        InheritedL10n.of(context).l10n.inputPlaceholder,
+                      ),
+                      focusNode: widget.options.ignoreKeyHandled ? null : _inputFocusNode,
                       keyboardType: TextInputType.multiline,
                       maxLines: 5,
                       minLines: 1,
@@ -211,10 +211,10 @@ class _InputState extends State<Input> {
                           .theme
                           .inputTextStyle
                           .copyWith(
-                            color: InheritedChatTheme.of(context)
-                                .theme
-                                .inputTextColor,
-                          ),
+                        color: InheritedChatTheme.of(context)
+                            .theme
+                            .inputTextColor,
+                      ),
                       textCapitalization: TextCapitalization.sentences,
                     ),
                   ),
@@ -248,7 +248,10 @@ class InputOptions {
     this.onTextFieldTap,
     this.sendButtonVisibilityMode = SendButtonVisibilityMode.editing,
     this.textEditingController,
+    this.ignoreKeyHandled = false,
   });
+
+  final bool ignoreKeyHandled;
 
   /// Controls the [Input] clear behavior. Defaults to [InputClearMode.always].
   final InputClearMode inputClearMode;
