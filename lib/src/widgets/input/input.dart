@@ -225,10 +225,12 @@ class _InputState extends State<Input> {
                   ),
                   child: Visibility(
                     visible: _sendButtonVisible,
-                    child: SendButton(
-                      onPressed: _handleSendPressed,
-                      padding: buttonPadding,
-                    ),
+                    child:widget.options.sendButton!=null ?
+                      widget.options.sendButton!(_handleSendPressed,buttonPadding) :
+                      SendButton(
+                        onPressed: _handleSendPressed,
+                        padding: buttonPadding,
+                      ),
                   ),
                 ),
               ],
@@ -249,7 +251,10 @@ class InputOptions {
     this.sendButtonVisibilityMode = SendButtonVisibilityMode.editing,
     this.textEditingController,
     this.ignoreKeyHandled = false,
+    this.sendButton,
   });
+
+  final Widget Function(VoidCallback onPressed, EdgeInsets padding)? sendButton;
 
   final bool ignoreKeyHandled;
 
