@@ -45,24 +45,7 @@ class Input extends StatefulWidget {
 
 /// [Input] widget state.
 class _InputState extends State<Input> {
-  late final _inputFocusNode = FocusNode(
-    onKeyEvent: (node, event) {
-      if (event.physicalKey == PhysicalKeyboardKey.enter &&
-          !HardwareKeyboard.instance.physicalKeysPressed.any(
-                (el) => <PhysicalKeyboardKey>{
-              PhysicalKeyboardKey.shiftLeft,
-              PhysicalKeyboardKey.shiftRight,
-            }.contains(el),
-          )) {
-        if (event is KeyDownEvent) {
-          _handleSendPressed();
-        }
-        return KeyEventResult.handled;
-      } else {
-        return KeyEventResult.ignored;
-      }
-    },
-  );
+  late final _inputFocusNode;
 
   bool _sendButtonVisible = false;
   late TextEditingController _textController;
@@ -73,6 +56,25 @@ class _InputState extends State<Input> {
 
     _textController =
         widget.options.textEditingController ?? InputTextFieldController();
+
+    _inputFocusNode = widget.options.inputFocusNode ?? FocusNode(
+      onKeyEvent: (node, event) {
+        if (event.physicalKey == PhysicalKeyboardKey.enter &&
+            !HardwareKeyboard.instance.physicalKeysPressed.any(
+                  (el) => <PhysicalKeyboardKey>{
+                PhysicalKeyboardKey.shiftLeft,
+                PhysicalKeyboardKey.shiftRight,
+              }.contains(el),
+            )) {
+          if (event is KeyDownEvent) {
+            _handleSendPressed();
+          }
+          return KeyEventResult.handled;
+        } else {
+          return KeyEventResult.ignored;
+        }
+      },
+    );
     _handleSendButtonVisibilityModeChange();
   }
 
@@ -201,7 +203,7 @@ class _InputState extends State<Input> {
                         hintText:
                         InheritedL10n.of(context).l10n.inputPlaceholder,
                       ),
-                      focusNode: widget.options.ignoreKeyHandled ? null : _inputFocusNode,
+                      focusNode: _inputFocusNode,
                       keyboardType: TextInputType.multiline,
                       maxLines: 5,
                       minLines: 1,
@@ -250,13 +252,12 @@ class InputOptions {
     this.onTextFieldTap,
     this.sendButtonVisibilityMode = SendButtonVisibilityMode.editing,
     this.textEditingController,
-    this.ignoreKeyHandled = false,
+    this.inputFocusNode,
     this.sendButton,
   });
 
   final Widget Function(VoidCallback onPressed, EdgeInsets padding)? sendButton;
 
-  final bool ignoreKeyHandled;
 
   /// Controls the [Input] clear behavior. Defaults to [InputClearMode.always].
   final InputClearMode inputClearMode;
@@ -279,4 +280,6 @@ class InputOptions {
   /// you can create your own [InputTextFieldController] (imported from this lib)
   /// and pass it here.
   final TextEditingController? textEditingController;
+
+  final FocusNode? inputFocusNode;
 }
