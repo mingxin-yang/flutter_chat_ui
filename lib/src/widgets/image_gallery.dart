@@ -39,35 +39,39 @@ class ImageGallery extends StatelessWidget {
           key: const Key('photo_view_gallery'),
           direction: DismissDirection.down,
           onDismissed: (direction) => onClosePressed(),
-          child: Stack(
-            children: [
-              PhotoViewGallery.builder(
-                builder: (BuildContext context, int index) =>
-                    PhotoViewGalleryPageOptions(
-                  imageProvider: Conditional().getProvider(
-                    images[index].uri,
-                    headers: imageHeaders,
+          child: GestureDetector(
+            onTap: onClosePressed,
+            child: Stack(
+              children: [
+                PhotoViewGallery.builder(
+                  builder: (BuildContext context, int index) =>
+                      PhotoViewGalleryPageOptions(
+                        imageProvider: Conditional().getProvider(
+                          images[index].uri,
+                          headers: imageHeaders,
+                        ),
+                        minScale: options.minScale,
+                        maxScale: options.maxScale,
+                      ),
+                  itemCount: images.length,
+                  loadingBuilder: (context, event) =>
+                      _imageGalleryLoadingBuilder(event),
+                  pageController: pageController,
+                  scrollPhysics: const ClampingScrollPhysics(),
+                ),
+                Positioned.directional(
+                  end: 16,
+                  textDirection: Directionality.of(context),
+                  top: 56,
+                  child: CloseButton(
+                    color: Colors.white,
+                    onPressed: onClosePressed,
                   ),
-                  minScale: options.minScale,
-                  maxScale: options.maxScale,
                 ),
-                itemCount: images.length,
-                loadingBuilder: (context, event) =>
-                    _imageGalleryLoadingBuilder(event),
-                pageController: pageController,
-                scrollPhysics: const ClampingScrollPhysics(),
-              ),
-              Positioned.directional(
-                end: 16,
-                textDirection: Directionality.of(context),
-                top: 56,
-                child: CloseButton(
-                  color: Colors.white,
-                  onPressed: onClosePressed,
-                ),
-              ),
-            ],
-          ),
+                ...options.imageOptions(context,images,pageController),
+              ],
+            ),
+          )
         ),
       );
 
@@ -88,7 +92,10 @@ class ImageGalleryOptions {
   const ImageGalleryOptions({
     this.maxScale,
     this.minScale,
+    this.imageOptions,
   });
+
+  final dynamic imageOptions;
 
   /// See [PhotoViewGalleryPageOptions.maxScale].
   final dynamic maxScale;

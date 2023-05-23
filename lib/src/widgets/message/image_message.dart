@@ -69,8 +69,13 @@ class _ImageMessageState extends State<ImageMessage> {
     if (_size.aspectRatio == 0) {
       return Container(
         color: InheritedChatTheme.of(context).theme.secondaryColor,
-        height: _size.height,
-        width: _size.width,
+        height: widget.messageWidth.toDouble(),
+        width: widget.messageWidth.toDouble(),
+        child: Center(
+          child: CircularProgressIndicator(
+            color: InheritedChatTheme.of(context).theme.primaryColor,
+          ),
+        ),
       );
     } else if (_size.aspectRatio < 0.1 || _size.aspectRatio > 10) {
       return Container(
