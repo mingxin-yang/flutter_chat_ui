@@ -97,7 +97,10 @@ class Chat extends StatefulWidget {
     this.videoMessageBuilder,
     this.makeMsgStartFromTop = false,
     this.messageWidth,
+    this.onCloseImageGallery,
   });
+
+  final VoidCallback? onCloseImageGallery;
 
   final int? messageWidth;
 
@@ -621,6 +624,7 @@ class ChatState extends State<Chat> {
   }
 
   void _onCloseGalleryPressed() {
+    widget.onCloseImageGallery?.call();
     setState(() {
       _isImageViewVisible = false;
     });
