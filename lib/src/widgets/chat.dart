@@ -8,6 +8,7 @@ import 'package:scroll_to_index/scroll_to_index.dart';
 
 import '../chat_l10n.dart';
 import '../chat_theme.dart';
+import '../conditional/conditional.dart';
 import '../models/bubble_rtl_alignment.dart';
 import '../models/date_header.dart';
 import '../models/emoji_enlargement_behavior.dart';
@@ -26,6 +27,9 @@ import 'state/inherited_l10n.dart';
 import 'state/inherited_user.dart';
 import 'typing_indicator.dart';
 import 'unread_header.dart';
+
+/// Keep track of all the auto scroll indices by their respective message's id to allow animating to them.
+final Map<String, int> chatMessageAutoScrollIndexById = {};
 
 /// Entry widget, represents the complete chat. If you wrap it in [SafeArea] and
 /// it should be full screen, set [SafeArea]'s `bottom` to `false`.
@@ -58,6 +62,7 @@ class Chat extends StatefulWidget {
     ),
     this.imageHeaders,
     this.imageMessageBuilder,
+    this.imageProviderBuilder,
     this.inputOptions = const InputOptions(),
     this.isAttachmentUploading,
     this.isLastPage,
@@ -98,6 +103,8 @@ class Chat extends StatefulWidget {
     this.makeMsgStartFromTop = false,
     this.messageWidth,
     this.onCloseImageGallery,
+    this.slidableMessageBuilder,
+    this.isLeftStatus = false,
   });
 
   final VoidCallback? onCloseImageGallery;
@@ -109,7 +116,7 @@ class Chat extends StatefulWidget {
       audioMessageBuilder;
 
   /// See [Message.avatarBuilder].
-  final Widget Function(String userId)? avatarBuilder;
+  final Widget Function(types.User author)? avatarBuilder;
 
   /// See [Message.bubbleBuilder].
   final Widget Function(
@@ -121,18 +128,10 @@ class Chat extends StatefulWidget {
   /// See [Message.bubbleRtlAlignment].
   final BubbleRtlAlignment? bubbleRtlAlignment;
 
-  /// Allows you to replace the default Input widget e.g. if you want to create
-  /// a channel view. If you're looking for the bottom widget added to the chat
-  /// list, see [listBottomWidget] instead.
+  /// Allows you to replace the default Input widget e.g. if you want to create a channel view. If you're looking for the bottom widget added to the chat list, see [listBottomWidget] instead.
   final Widget? customBottomWidget;
 
-  /// If [dateFormat], [dateLocale] and/or [timeFormat] is not enough to
-  /// customize date headers in your case, use this to return an arbitrary
-  /// string based on a [DateTime] of a particular message. Can be helpful to
-  /// return "Today" if [DateTime] is today. IMPORTANT: this will replace
-  /// all default date headers, so you must handle all cases yourself, like
-  /// for example today, yesterday and before. Or you can just return the same
-  /// date header for any message.
+  /// If [dateFormat], [dateLocale] and/or [timeFormat] is not enough to customize date headers in your case, use this to return an arbitrary string based on a [DateTime] of a particular message. Can be helpful to return "Today" if [DateTime] is today. IMPORTANT: this will replace all default date headers, so you must handle all cases yourself, like for example today, yesterday and before. Or you can just return the same date header for any message.
   final String Function(DateTime)? customDateHeaderText;
 
   /// See [Message.customMessageBuilder].
@@ -143,11 +142,7 @@ class Chat extends StatefulWidget {
   final Widget Function(types.Message message, {required BuildContext context})?
       customStatusBuilder;
 
-  /// Allows you to customize the date format. IMPORTANT: only for the date,
-  /// do not return time here. See [timeFormat] to customize the time format.
-  /// [dateLocale] will be ignored if you use this, so if you want a localized date
-  /// make sure you initialize your [DateFormat] with a locale. See [customDateHeaderText]
-  /// for more customization.
+  /// Allows you to customize the date format. IMPORTANT: only for the date, do not return time here. See [timeFormat] to customize the time format. [dateLocale] will be ignored if you use this, so if you want a localized date make sure you initialize your [DateFormat] with a locale. See [customDateHeaderText] for more customization.
   final DateFormat? dateFormat;
 
   /// Custom date header builder gives ability to customize date header widget.
@@ -200,6 +195,16 @@ class Chat extends StatefulWidget {
   final Widget Function(types.ImageMessage, {required int messageWidth})?
       imageMessageBuilder;
 
+  /// This feature allows you to use a custom image provider.
+  /// This is useful if you want to manage image loading yourself, or if you need to cache images.
+  /// You can also use the `cached_network_image` feature, but when it comes to caching, you might want to decide on a per-message basis.
+  /// Plus, by using this provider, you can choose whether or not to send specific headers based on the URL.
+  final ImageProvider Function({
+    required String uri,
+    required Map<String, String>? imageHeaders,
+    required Conditional conditional,
+  })? imageProviderBuilder;
+
   /// See [Input.options].
   final InputOptions inputOptions;
 
@@ -225,7 +230,7 @@ class Chat extends StatefulWidget {
   final List<types.Message> messages;
 
   /// See [Message.nameBuilder].
-  final Widget Function(String userId)? nameBuilder;
+  final Widget Function(types.User)? nameBuilder;
 
   /// See [Input.onAttachmentPressed].
   final VoidCallback? onAttachmentPressed;
@@ -303,11 +308,7 @@ class Chat extends StatefulWidget {
   /// properties, see more here [DefaultChatTheme].
   final ChatTheme theme;
 
-  /// Allows you to customize the time format. IMPORTANT: only for the time,
-  /// do not return date here. See [dateFormat] to customize the date format.
-  /// [dateLocale] will be ignored if you use this, so if you want a localized time
-  /// make sure you initialize your [DateFormat] with a locale. See [customDateHeaderText]
-  /// for more customization.
+  /// Allows you to customize the time format. IMPORTANT: only for the time, do not return date here. See [dateFormat] to customize the date format. [dateLocale] will be ignored if you use this, so if you want a localized time make sure you initialize your [DateFormat] with a locale. See [customDateHeaderText] for more customization.
   final DateFormat? timeFormat;
 
   /// Used to show typing users with indicator. See [TypingIndicatorOptions].
@@ -330,13 +331,23 @@ class Chat extends StatefulWidget {
       videoMessageBuilder;
 
   final bool makeMsgStartFromTop;
+  /// See [Message.slidableMessageBuilder].
+  final Widget Function(types.Message, Widget msgWidget)?
+      slidableMessageBuilder;
+
+  /// See [Message.isLeftStatus].
+  /// If true, status will be shown on the left side of the message.
+  /// If false, status will be shown on the right side of the message.
+  /// Default value is false.
+  final bool isLeftStatus;
+
   @override
   State<Chat> createState() => ChatState();
 }
 
 /// [Chat] widget state.
 class ChatState extends State<Chat> {
-  /// Used to get the correct auto scroll index from [_autoScrollIndexById].
+  /// Used to get the correct auto scroll index from [chatMessageAutoScrollIndexById].
   static const String _unreadHeaderId = 'unread_header_id';
 
   List<Object> _chatMessages = [];
@@ -345,8 +356,6 @@ class ChatState extends State<Chat> {
   bool _hadScrolledToUnreadOnOpen = false;
   bool _isImageViewVisible = false;
 
-  /// Keep track of all the auto scroll indices by their respective message's id to allow animating to them.
-  final Map<String, int> _autoScrollIndexById = {};
   late final AutoScrollController _scrollController;
 
   @override
@@ -356,6 +365,216 @@ class ChatState extends State<Chat> {
     _scrollController = widget.scrollController ?? AutoScrollController();
 
     didUpdateWidget(widget);
+  }
+
+  /// Scroll to the unread header.
+  void scrollToUnreadHeader() {
+    final unreadHeaderIndex = chatMessageAutoScrollIndexById[_unreadHeaderId];
+    if (unreadHeaderIndex != null) {
+      _scrollController.scrollToIndex(
+        unreadHeaderIndex,
+        duration: widget.scrollToUnreadOptions.scrollDuration,
+      );
+    }
+  }
+
+  /// Scroll to the message with the specified [id].
+  void scrollToMessage(
+    String id, {
+    Duration? scrollDuration,
+    bool withHighlight = false,
+    Duration? highlightDuration,
+  }) async {
+    await _scrollController.scrollToIndex(
+      chatMessageAutoScrollIndexById[id]!,
+      duration: scrollDuration ?? scrollAnimationDuration,
+      preferPosition: AutoScrollPosition.middle,
+    );
+    if (withHighlight) {
+      await _scrollController.highlight(
+        chatMessageAutoScrollIndexById[id]!,
+        highlightDuration: highlightDuration ?? const Duration(seconds: 3),
+      );
+    }
+  }
+
+  /// Highlight the message with the specified [id].
+  void highlightMessage(String id, {Duration? duration}) =>
+      _scrollController.highlight(
+        chatMessageAutoScrollIndexById[id]!,
+        highlightDuration: duration ?? const Duration(seconds: 3),
+      );
+
+  Widget _emptyStateBuilder() =>
+      widget.emptyState ??
+      Container(
+        alignment: Alignment.center,
+        margin: const EdgeInsets.symmetric(
+          horizontal: 24,
+        ),
+        child: Text(
+          widget.l10n.emptyChatPlaceholder,
+          style: widget.theme.emptyChatPlaceholderTextStyle,
+          textAlign: TextAlign.center,
+        ),
+      );
+
+  /// Only scroll to first unread if there are messages and it is the first open.
+  void _maybeScrollToFirstUnread() {
+    if (widget.scrollToUnreadOptions.scrollOnOpen &&
+        _chatMessages.isNotEmpty &&
+        !_hadScrolledToUnreadOnOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (mounted) {
+          await Future.delayed(widget.scrollToUnreadOptions.scrollDelay);
+          scrollToUnreadHeader();
+        }
+      });
+      _hadScrolledToUnreadOnOpen = true;
+    }
+  }
+
+  /// We need the index for auto scrolling because it will scroll until it reaches an index higher or equal that what it is scrolling towards. Index will be null for removed messages. Can just set to -1 for auto scroll.
+  Widget _messageBuilder(
+    Object object,
+    BoxConstraints constraints,
+    int? index,
+  ) {
+    if (object is DateHeader) {
+      return widget.dateHeaderBuilder?.call(object) ??
+          Container(
+            alignment: Alignment.center,
+            margin: widget.theme.dateDividerMargin,
+            child: Text(
+              object.text,
+              style: widget.theme.dateDividerTextStyle,
+            ),
+          );
+    } else if (object is MessageSpacer) {
+      return SizedBox(
+        height: object.height,
+      );
+    } else if (object is UnreadHeaderData) {
+      return AutoScrollTag(
+        controller: _scrollController,
+        index: index ?? -1,
+        key: const Key('unread_header'),
+        child: UnreadHeader(
+          marginTop: object.marginTop,
+        ),
+      );
+    } else {
+      final map = object as Map<String, Object>;
+      final message = map['message']! as types.Message;
+
+      final Widget messageWidget;
+
+      if (message is types.SystemMessage) {
+        messageWidget = widget.systemMessageBuilder?.call(message) ??
+            SystemMessage(message: message.text);
+      } else {
+        final minWidth = widget.theme.messageMinWidth;
+        final messageWidth =
+            widget.showUserAvatars && message.author.id != widget.user.id
+                ? min(constraints.maxWidth * 0.72, minWidth).floor()
+                : min(constraints.maxWidth * 0.78, minWidth).floor();
+        final Widget msgWidget = Message(
+          audioMessageBuilder: widget.audioMessageBuilder,
+          avatarBuilder: widget.avatarBuilder,
+          bubbleBuilder: widget.bubbleBuilder,
+          bubbleRtlAlignment: widget.bubbleRtlAlignment,
+          customMessageBuilder: widget.customMessageBuilder,
+          customStatusBuilder: widget.customStatusBuilder,
+          emojiEnlargementBehavior: widget.emojiEnlargementBehavior,
+          fileMessageBuilder: widget.fileMessageBuilder,
+          hideBackgroundOnEmojiMessages: widget.hideBackgroundOnEmojiMessages,
+          imageHeaders: widget.imageHeaders,
+          imageMessageBuilder: widget.imageMessageBuilder,
+          imageProviderBuilder: widget.imageProviderBuilder,
+          message: message,
+          messageWidth: messageWidth,
+          nameBuilder: widget.nameBuilder,
+          onAvatarTap: widget.onAvatarTap,
+          onMessageDoubleTap: widget.onMessageDoubleTap,
+          onMessageLongPress: widget.onMessageLongPress,
+          onMessageStatusLongPress: widget.onMessageStatusLongPress,
+          onMessageStatusTap: widget.onMessageStatusTap,
+          onMessageTap: (context, tappedMessage) {
+            if (tappedMessage is types.ImageMessage &&
+                widget.disableImageGallery != true) {
+              _onImagePressed(tappedMessage);
+            }
+
+            widget.onMessageTap?.call(context, tappedMessage);
+          },
+          onMessageVisibilityChanged: widget.onMessageVisibilityChanged,
+          onPreviewDataFetched: _onPreviewDataFetched,
+          roundBorder: map['nextMessageInGroup'] == true,
+          showAvatar: map['nextMessageInGroup'] == false,
+          showName: map['showName'] == true,
+          showStatus: map['showStatus'] == true,
+          isLeftStatus: widget.isLeftStatus,
+          showUserAvatars: widget.showUserAvatars,
+          textMessageBuilder: widget.textMessageBuilder,
+          textMessageOptions: widget.textMessageOptions,
+          usePreviewData: widget.usePreviewData,
+          userAgent: widget.userAgent,
+          videoMessageBuilder: widget.videoMessageBuilder,
+        );
+        messageWidget = widget.slidableMessageBuilder == null
+            ? msgWidget
+            : widget.slidableMessageBuilder!(message, msgWidget);
+      }
+
+      return AutoScrollTag(
+        controller: _scrollController,
+        index: index ?? -1,
+        key: Key('scroll-${message.id}'),
+        highlightColor: widget.theme.highlightMessageColor,
+        child: messageWidget,
+      );
+    }
+  }
+
+  void _onCloseGalleryPressed() {
+    widget.onCloseImageGallery?.call();
+    setState(() {
+      _isImageViewVisible = false;
+    });
+    _galleryPageController?.dispose();
+    _galleryPageController = null;
+  }
+
+  void _onImagePressed(types.ImageMessage message) {
+    final initialPage = _gallery.indexWhere(
+      (element) => element.id == message.id && element.uri == message.uri,
+    );
+    _galleryPageController = PageController(initialPage: initialPage);
+    setState(() {
+      _isImageViewVisible = true;
+    });
+  }
+
+  void _onPreviewDataFetched(
+    types.TextMessage message,
+    types.PreviewData previewData,
+  ) {
+    widget.onPreviewDataFetched?.call(message, previewData);
+  }
+
+  /// Updates the [chatMessageAutoScrollIndexById] mapping with the latest messages.
+  void _refreshAutoScrollMapping() {
+    chatMessageAutoScrollIndexById.clear();
+    var i = 0;
+    for (final object in _chatMessages) {
+      if (object is UnreadHeaderData) {
+        chatMessageAutoScrollIndexById[_unreadHeaderId] = i;
+      } else if (object is Map<String, Object>) {
+        final message = object['message']! as types.Message;
+        chatMessageAutoScrollIndexById[message.id] = i;
+      }
+      i++;
+    }
   }
 
   @override
@@ -391,24 +610,6 @@ class ChatState extends State<Chat> {
     _scrollController.dispose();
     super.dispose();
   }
-
-  /// Scroll to the unread header.
-  void scrollToUnreadHeader() {
-    final unreadHeaderIndex = _autoScrollIndexById[_unreadHeaderId];
-    if (unreadHeaderIndex != null) {
-      _scrollController.scrollToIndex(
-        unreadHeaderIndex,
-        duration: widget.scrollToUnreadOptions.scrollDuration,
-      );
-    }
-  }
-
-  /// Scroll to the message with the specified [id].
-  void scrollToMessage(String id, {Duration? duration}) =>
-      _scrollController.scrollToIndex(
-        _autoScrollIndexById[id]!,
-        duration: duration ?? scrollAnimationDuration,
-      );
 
   @override
   Widget build(BuildContext context) => InheritedUser(
@@ -483,6 +684,7 @@ class ChatState extends State<Chat> {
                 if (_isImageViewVisible)
                   ImageGallery(
                     imageHeaders: widget.imageHeaders,
+                    imageProviderBuilder: widget.imageProviderBuilder,
                     images: _gallery,
                     pageController: _galleryPageController!,
                     onClosePressed: _onCloseGalleryPressed,
@@ -493,174 +695,4 @@ class ChatState extends State<Chat> {
           ),
         ),
       );
-
-  Widget _emptyStateBuilder() =>
-      widget.emptyState ??
-      Container(
-        alignment: Alignment.center,
-        margin: const EdgeInsets.symmetric(
-          horizontal: 24,
-        ),
-        child: Text(
-          widget.l10n.emptyChatPlaceholder,
-          style: widget.theme.emptyChatPlaceholderTextStyle,
-          textAlign: TextAlign.center,
-        ),
-      );
-
-  /// Only scroll to first unread if there are messages and it is the first open.
-  void _maybeScrollToFirstUnread() {
-    if (widget.scrollToUnreadOptions.scrollOnOpen &&
-        _chatMessages.isNotEmpty &&
-        !_hadScrolledToUnreadOnOpen) {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (mounted) {
-          await Future.delayed(widget.scrollToUnreadOptions.scrollDelay);
-          scrollToUnreadHeader();
-        }
-      });
-      _hadScrolledToUnreadOnOpen = true;
-    }
-  }
-
-  /// We need the index for auto scrolling because it will scroll until it reaches an index higher or equal that what it is scrolling towards. Index will be null for removed messages. Can just set to -1 for auto scroll.
-  Widget _messageBuilder(
-    Object object,
-    BoxConstraints constraints,
-    int? index,
-  ) {
-    if (object is DateHeader) {
-      return widget.dateHeaderBuilder?.call(object) ??
-          Container(
-            alignment: Alignment.center,
-            margin: widget.theme.dateDividerMargin,
-            child: Text(
-              object.text,
-              style: widget.theme.dateDividerTextStyle,
-            ),
-          );
-    } else if (object is MessageSpacer) {
-      return SizedBox(
-        height: object.height,
-      );
-    } else if (object is UnreadHeaderData) {
-      return AutoScrollTag(
-        controller: _scrollController,
-        index: index ?? -1,
-        key: const Key('unread_header'),
-        child: UnreadHeader(
-          marginTop: object.marginTop,
-        ),
-      );
-    } else {
-      final map = object as Map<String, Object>;
-      final message = map['message']! as types.Message;
-
-      final Widget messageWidget;
-
-      if (message is types.SystemMessage) {
-        messageWidget = widget.systemMessageBuilder?.call(message) ??
-            SystemMessage(message: message.text);
-      } else {
-        final messageWidth =
-        widget.showUserAvatars && message.author.id != widget.user.id
-            ? widget.messageWidth != null
-            ? (widget.messageWidth! * 0.72).floor()
-            : min(constraints.maxWidth * 0.72, 440).floor()
-            : widget.messageWidth != null
-            ? (widget.messageWidth! * 0.78).floor()
-            : min(
-            constraints.maxWidth * 0.78, 440).floor();
-        messageWidget = Message(
-          audioMessageBuilder: widget.audioMessageBuilder,
-          avatarBuilder: widget.avatarBuilder,
-          bubbleBuilder: widget.bubbleBuilder,
-          bubbleRtlAlignment: widget.bubbleRtlAlignment,
-          customMessageBuilder: widget.customMessageBuilder,
-          customStatusBuilder: widget.customStatusBuilder,
-          emojiEnlargementBehavior: widget.emojiEnlargementBehavior,
-          fileMessageBuilder: widget.fileMessageBuilder,
-          hideBackgroundOnEmojiMessages: widget.hideBackgroundOnEmojiMessages,
-          imageHeaders: widget.imageHeaders,
-          imageMessageBuilder: widget.imageMessageBuilder,
-          message: message,
-          messageWidth: messageWidth,
-          nameBuilder: widget.nameBuilder,
-          onAvatarTap: widget.onAvatarTap,
-          onMessageDoubleTap: widget.onMessageDoubleTap,
-          onMessageLongPress: widget.onMessageLongPress,
-          onMessageStatusLongPress: widget.onMessageStatusLongPress,
-          onMessageStatusTap: widget.onMessageStatusTap,
-          onMessageTap: (context, tappedMessage) {
-            if (tappedMessage is types.ImageMessage &&
-                widget.disableImageGallery != true) {
-              _onImagePressed(tappedMessage);
-            }
-
-            widget.onMessageTap?.call(context, tappedMessage);
-          },
-          onMessageVisibilityChanged: widget.onMessageVisibilityChanged,
-          onPreviewDataFetched: _onPreviewDataFetched,
-          roundBorder: map['nextMessageInGroup'] == true,
-          showAvatar: map['nextMessageInGroup'] == false,
-          showName: map['showName'] == true,
-          showStatus: map['showStatus'] == true,
-          showUserAvatars: widget.showUserAvatars,
-          textMessageBuilder: widget.textMessageBuilder,
-          textMessageOptions: widget.textMessageOptions,
-          usePreviewData: widget.usePreviewData,
-          userAgent: widget.userAgent,
-          videoMessageBuilder: widget.videoMessageBuilder,
-        );
-      }
-
-      return AutoScrollTag(
-        controller: _scrollController,
-        index: index ?? -1,
-        key: Key('scroll-${message.id}'),
-        child: messageWidget,
-      );
-    }
-  }
-
-  void _onCloseGalleryPressed() {
-    widget.onCloseImageGallery?.call();
-    setState(() {
-      _isImageViewVisible = false;
-    });
-    _galleryPageController?.dispose();
-    _galleryPageController = null;
-  }
-
-  void _onImagePressed(types.ImageMessage message) {
-    final initialPage = _gallery.indexWhere(
-      (element) => element.id == message.id && element.uri == message.uri,
-    );
-    _galleryPageController = PageController(initialPage: initialPage);
-    setState(() {
-      _isImageViewVisible = true;
-    });
-  }
-
-  void _onPreviewDataFetched(
-    types.TextMessage message,
-    types.PreviewData previewData,
-  ) {
-    widget.onPreviewDataFetched?.call(message, previewData);
-  }
-
-  /// Updates the [_autoScrollIndexById] mapping with the latest messages.
-  void _refreshAutoScrollMapping() {
-    _autoScrollIndexById.clear();
-    var i = 0;
-    for (final object in _chatMessages) {
-      if (object is UnreadHeaderData) {
-        _autoScrollIndexById[_unreadHeaderId] = i;
-      } else if (object is Map<String, Object>) {
-        final message = object['message']! as types.Message;
-        _autoScrollIndexById[message.id] = i;
-      }
-      i++;
-    }
-  }
 }

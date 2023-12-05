@@ -8,6 +8,7 @@ class ImageGallery extends StatelessWidget {
   const ImageGallery({
     super.key,
     this.imageHeaders,
+    this.imageProviderBuilder,
     required this.images,
     required this.onClosePressed,
     this.options = const ImageGalleryOptions(),
@@ -16,6 +17,13 @@ class ImageGallery extends StatelessWidget {
 
   /// See [Chat.imageHeaders].
   final Map<String, String>? imageHeaders;
+
+  /// See [Chat.imageProviderBuilder].
+  final ImageProvider Function({
+    required String uri,
+    required Map<String, String>? imageHeaders,
+    required Conditional conditional,
+  })? imageProviderBuilder;
 
   /// Images to show in the gallery.
   final List<PreviewImage> images;
@@ -29,11 +37,24 @@ class ImageGallery extends StatelessWidget {
   /// Page controller for the image pages.
   final PageController pageController;
 
+  Widget _imageGalleryLoadingBuilder(ImageChunkEvent? event) => Center(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(
+            value: event == null || event.expectedTotalBytes == null
+                ? 0
+                : event.cumulativeBytesLoaded / event.expectedTotalBytes!,
+          ),
+        ),
+      );
+
   @override
-  Widget build(BuildContext context) => WillPopScope(
-        onWillPop: () async {
-          onClosePressed();
-          return false;
+  Widget build(BuildContext context) => PopScope(
+        onPopInvoked: (didPop) {
+          if (didPop) {
+            onClosePressed();
+          }
         },
         child: Dismissible(
           key: const Key('photo_view_gallery'),
@@ -46,46 +67,35 @@ class ImageGallery extends StatelessWidget {
                 PhotoViewGallery.builder(
                   builder: (BuildContext context, int index) =>
                       PhotoViewGalleryPageOptions(
-                        imageProvider: Conditional().getProvider(
-                          images[index].uri,
-                          headers: imageHeaders,
-                        ),
-                        minScale: options.minScale,
-                        maxScale: options.maxScale,
-                      ),
-                  itemCount: images.length,
-                  loadingBuilder: (context, event) =>
-                      _imageGalleryLoadingBuilder(event),
-                  pageController: pageController,
-                  scrollPhysics: const ClampingScrollPhysics(),
-                ),
-                Positioned.directional(
-                  end: 16,
-                  textDirection: Directionality.of(context),
-                  top: 56,
-                  child: CloseButton(
-                    color: Colors.white,
-                    onPressed: onClosePressed,
+                    imageProvider: imageProviderBuilder != null
+                        ? imageProviderBuilder!(
+                            uri: images[index].uri,
+                            imageHeaders: imageHeaders,
+                            conditional: Conditional(),
+                          )
+                        : Conditional().getProvider(
+                            images[index].uri,
+                            headers: imageHeaders,
+                          ),
+                    minScale: options.minScale,
+                    maxScale: options.maxScale,
                   ),
+                  Positioned.directional(
+                    end: 16,
+                    textDirection: Directionality.of(context),
+                    top: 56,
+                    child: CloseButton(
+                      color: Colors.white,
+                      onPressed: onClosePressed,
+                    ),
+                  ),
+                  ...options.imageOptions(context,images,pageController),
                 ),
-                ...options.imageOptions(context,images,pageController),
               ],
             ),
-          )
-        ),
-      );
-
-  Widget _imageGalleryLoadingBuilder(ImageChunkEvent? event) => Center(
-        child: SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(
-            value: event == null || event.expectedTotalBytes == null
-                ? 0
-                : event.cumulativeBytesLoaded / event.expectedTotalBytes!,
           ),
-        ),
-      );
+        )
+      ),
 }
 
 class ImageGalleryOptions {

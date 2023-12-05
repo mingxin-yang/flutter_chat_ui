@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 import 'package:flutter_link_previewer/flutter_link_previewer.dart'
-    show LinkPreview, regexEmail, regexLink;
+    show LinkPreview, regexLink;
 import 'package:flutter_parsed_text/flutter_parsed_text.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/emoji_enlargement_behavior.dart';
+import '../../models/matchers.dart';
 import '../../models/pattern_style.dart';
 import '../../util.dart';
 import '../state/inherited_chat_theme.dart';
@@ -38,8 +38,8 @@ class TextMessage extends StatelessWidget {
   final types.TextMessage message;
 
   /// This is to allow custom user name builder
-  /// By using this we can fetch newest user info based on id
-  final Widget Function(String userId)? nameBuilder;
+  /// By using this we can fetch newest user info based on id.
+  final Widget Function(types.User)? nameBuilder;
 
   /// See [LinkPreview.onPreviewDataFetched].
   final void Function(types.TextMessage, types.PreviewData)?
@@ -56,33 +56,6 @@ class TextMessage extends StatelessWidget {
 
   /// User agent to fetch preview data with.
   final String? userAgent;
-
-  @override
-  Widget build(BuildContext context) {
-    final enlargeEmojis =
-        emojiEnlargementBehavior != EmojiEnlargementBehavior.never &&
-            isConsistsOfEmojis(emojiEnlargementBehavior, message);
-    final theme = InheritedChatTheme.of(context).theme;
-    final user = InheritedUser.of(context).user;
-    final width = MediaQuery.of(context).size.width;
-
-    if (usePreviewData && onPreviewDataFetched != null) {
-      final urlRegexp = RegExp(regexLink, caseSensitive: false);
-      final matches = urlRegexp.allMatches(message.text);
-
-      if (matches.isNotEmpty) {
-        return _linkPreview(user, width, context);
-      }
-    }
-
-    return Container(
-      margin: EdgeInsets.symmetric(
-        horizontal: theme.messageInsetsHorizontal,
-        vertical: theme.messageInsetsVertical,
-      ),
-      child: _textWidgetBuilder(user, context, enlargeEmojis),
-    );
-  }
 
   Widget _linkPreview(
     types.User user,
@@ -155,8 +128,7 @@ class TextMessage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (showName)
-          nameBuilder?.call(message.author.id) ??
-              UserName(author: message.author),
+          nameBuilder?.call(message.author) ?? UserName(author: message.author),
         if (enlargeEmojis)
           if (options.isTextSelectable)
             SelectableText(message.text, style: emojiTextStyle)
@@ -172,6 +144,33 @@ class TextMessage extends StatelessWidget {
             text: message.text,
           ),
       ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final enlargeEmojis =
+        emojiEnlargementBehavior != EmojiEnlargementBehavior.never &&
+            isConsistsOfEmojis(emojiEnlargementBehavior, message);
+    final theme = InheritedChatTheme.of(context).theme;
+    final user = InheritedUser.of(context).user;
+    final width = MediaQuery.of(context).size.width;
+
+    if (usePreviewData && onPreviewDataFetched != null) {
+      final urlRegexp = RegExp(regexLink, caseSensitive: false);
+      final matches = urlRegexp.allMatches(message.text);
+
+      if (matches.isNotEmpty) {
+        return _linkPreview(user, width, context);
+      }
+    }
+
+    return Container(
+      margin: EdgeInsets.symmetric(
+        horizontal: theme.messageInsetsHorizontal,
+        vertical: theme.messageInsetsVertical,
+      ),
+      child: _textWidgetBuilder(user, context, enlargeEmojis),
     );
   }
 }
@@ -218,87 +217,32 @@ class TextMessageText extends StatelessWidget {
   Widget build(BuildContext context) => ParsedText(
         parse: [
           ...options.matchers,
-          MatchText(
-            onTap: (mail) async {
-              final url = Uri(scheme: 'mailto', path: mail);
-              if (await canLaunchUrl(url)) {
-                await launchUrl(url);
-              }
-            },
-            pattern: regexEmail,
+          mailToMatcher(
             style: bodyLinkTextStyle ??
                 bodyTextStyle.copyWith(
                   decoration: TextDecoration.underline,
                 ),
           ),
-          MatchText(
-            onTap: (urlText) async {
-              final protocolIdentifierRegex = RegExp(
-                r'^((http|ftp|https):\/\/)',
-                caseSensitive: false,
-              );
-              if (!urlText.startsWith(protocolIdentifierRegex)) {
-                urlText = 'https://$urlText';
-              }
-              if (options.onLinkPressed != null) {
-                options.onLinkPressed!(urlText);
-              } else {
-                final url = Uri.tryParse(urlText);
-                if (url != null && await canLaunchUrl(url)) {
-                  await launchUrl(
-                    url,
-                    mode: LaunchMode.externalApplication,
-                  );
-                }
-              }
-            },
-            pattern: regexLink,
+          urlMatcher(
+            onLinkPressed: options.onLinkPressed,
             style: bodyLinkTextStyle ??
                 bodyTextStyle.copyWith(
                   decoration: TextDecoration.underline,
                 ),
           ),
-          MatchText(
-            pattern: PatternStyle.bold.pattern,
+          boldMatcher(
             style: boldTextStyle ??
                 bodyTextStyle.merge(PatternStyle.bold.textStyle),
-            renderText: ({required String str, required String pattern}) => {
-              'display': str.replaceAll(
-                PatternStyle.bold.from,
-                PatternStyle.bold.replace,
-              ),
-            },
           ),
-          MatchText(
-            pattern: PatternStyle.italic.pattern,
+          italicMatcher(
             style: bodyTextStyle.merge(PatternStyle.italic.textStyle),
-            renderText: ({required String str, required String pattern}) => {
-              'display': str.replaceAll(
-                PatternStyle.italic.from,
-                PatternStyle.italic.replace,
-              ),
-            },
           ),
-          MatchText(
-            pattern: PatternStyle.lineThrough.pattern,
+          lineThroughMatcher(
             style: bodyTextStyle.merge(PatternStyle.lineThrough.textStyle),
-            renderText: ({required String str, required String pattern}) => {
-              'display': str.replaceAll(
-                PatternStyle.lineThrough.from,
-                PatternStyle.lineThrough.replace,
-              ),
-            },
           ),
-          MatchText(
-            pattern: PatternStyle.code.pattern,
+          codeMatcher(
             style: codeTextStyle ??
                 bodyTextStyle.merge(PatternStyle.code.textStyle),
-            renderText: ({required String str, required String pattern}) => {
-              'display': str.replaceAll(
-                PatternStyle.code.from,
-                PatternStyle.code.replace,
-              ),
-            },
           ),
         ],
         maxLines: maxLines,

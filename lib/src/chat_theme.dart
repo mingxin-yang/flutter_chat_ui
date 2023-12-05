@@ -6,7 +6,7 @@ import 'widgets/unread_header.dart';
 
 // For internal usage only. Use values from theme itself.
 
-/// See [ChatTheme.userAvatarNameColors]
+/// See [ChatTheme.userAvatarNameColors].
 const colors = [
   Color(0xffff6767),
   Color(0xff66e0da),
@@ -67,6 +67,8 @@ abstract class ChatTheme {
     required this.errorColor,
     required this.errorIcon,
     required this.inputBackgroundColor,
+    required this.inputSurfaceTintColor,
+    required this.inputElevation,
     required this.inputBorderRadius,
     this.inputContainerDecoration,
     required this.inputMargin,
@@ -78,6 +80,7 @@ abstract class ChatTheme {
     required this.messageBorderRadius,
     required this.messageInsetsHorizontal,
     required this.messageInsetsVertical,
+    required this.messageMinWidth,
     required this.primaryColor,
     required this.receivedEmojiMessageTextStyle,
     this.receivedMessageBodyBoldTextStyle,
@@ -110,6 +113,7 @@ abstract class ChatTheme {
     required this.userAvatarNameColors,
     required this.userAvatarTextStyle,
     required this.userNameTextStyle,
+    this.highlightMessageColor,
   });
 
   /// Icon for select attachment button.
@@ -145,6 +149,11 @@ abstract class ChatTheme {
   /// Color of the bottom bar where text field is.
   final Color inputBackgroundColor;
 
+  /// Surface Tint Color of the bottom bar where text field is.
+  final Color inputSurfaceTintColor;
+
+  final double inputElevation;
+
   /// Top border radius of the bottom bar where text field is.
   final BorderRadius inputBorderRadius;
 
@@ -178,8 +187,11 @@ abstract class ChatTheme {
   /// Vertical message bubble insets.
   final double messageInsetsVertical;
 
+  /// Message bubble min width. set to [double.infinity] adaptive screen.
+  final double messageMinWidth;
+
   /// Primary color of the chat used as a background of sent messages
-  /// and statuses
+  /// and statuses.
   final Color primaryColor;
 
   /// Text style used for displaying emojis on text messages.
@@ -194,15 +206,14 @@ abstract class ChatTheme {
   final TextStyle? receivedMessageBodyCodeTextStyle;
 
   /// Text style used for displaying link text on received text messages.
-  /// Defaults to [receivedMessageBodyTextStyle]
+  /// Defaults to [receivedMessageBodyTextStyle].
   final TextStyle? receivedMessageBodyLinkTextStyle;
 
   /// Body text style used for displaying text on different types
-  /// of received messages
+  /// of received messages.
   final TextStyle receivedMessageBodyTextStyle;
 
-  /// Caption text style used for displaying secondary info (e.g. file size)
-  /// on different types of received messages
+  /// Caption text style used for displaying secondary info (e.g. file size) on different types of received messages.
   final TextStyle receivedMessageCaptionTextStyle;
 
   /// Color of the document icon on received messages. Has no effect when
@@ -242,15 +253,14 @@ abstract class ChatTheme {
   final TextStyle? sentMessageBodyCodeTextStyle;
 
   /// Text style used for displaying link text on sent text messages.
-  /// Defaults to [sentMessageBodyTextStyle]
+  /// Defaults to [sentMessageBodyTextStyle].
   final TextStyle? sentMessageBodyLinkTextStyle;
 
   /// Body text style used for displaying text on different types
-  /// of sent messages
+  /// of sent messages.
   final TextStyle sentMessageBodyTextStyle;
 
-  /// Caption text style used for displaying secondary info (e.g. file size)
-  /// on different types of sent messages
+  /// Caption text style used for displaying secondary info (e.g. file size) on different types of sent messages.
   final TextStyle sentMessageCaptionTextStyle;
 
   /// Color of the document icon on sent messages. Has no effect when
@@ -286,11 +296,14 @@ abstract class ChatTheme {
   final List<Color> userAvatarNameColors;
 
   /// Text style used for displaying initials on user avatar if no
-  /// image is provided
+  /// image is provided.
   final TextStyle userAvatarTextStyle;
 
   /// User names text style. Color will be overwritten with [userAvatarNameColors].
   final TextStyle userNameTextStyle;
+
+  /// Color used as background of message row on highligth.
+  final Color? highlightMessageColor;
 }
 
 /// Default chat theme which extends [ChatTheme].
@@ -298,7 +311,7 @@ abstract class ChatTheme {
 class DefaultChatTheme extends ChatTheme {
   /// Creates a default chat theme. Use this constructor if you want to
   /// override only a couple of properties, otherwise create a new class
-  /// which extends [ChatTheme]
+  /// which extends [ChatTheme].
   const DefaultChatTheme({
     super.attachmentButtonIcon,
     super.attachmentButtonMargin,
@@ -324,6 +337,8 @@ class DefaultChatTheme extends ChatTheme {
     super.errorColor = error,
     super.errorIcon,
     super.inputBackgroundColor = neutral0,
+    super.inputSurfaceTintColor = neutral0,
+    super.inputElevation = 0,
     super.inputBorderRadius = const BorderRadius.vertical(
       top: Radius.circular(20),
     ),
@@ -345,6 +360,7 @@ class DefaultChatTheme extends ChatTheme {
     super.messageBorderRadius = 20,
     super.messageInsetsHorizontal = 20,
     super.messageInsetsVertical = 16,
+    super.messageMinWidth = 440,
     super.primaryColor = primary,
     super.receivedEmojiMessageTextStyle = const TextStyle(fontSize: 40),
     super.receivedMessageBodyBoldTextStyle,
@@ -459,6 +475,7 @@ class DefaultChatTheme extends ChatTheme {
       fontWeight: FontWeight.w800,
       height: 1.333,
     ),
+    super.highlightMessageColor,
   });
 }
 
@@ -467,7 +484,7 @@ class DefaultChatTheme extends ChatTheme {
 class DarkChatTheme extends ChatTheme {
   /// Creates a dark chat theme. Use this constructor if you want to
   /// override only a couple of properties, otherwise create a new class
-  /// which extends [ChatTheme]
+  /// which extends [ChatTheme].
   const DarkChatTheme({
     super.attachmentButtonIcon,
     super.attachmentButtonMargin,
@@ -493,6 +510,8 @@ class DarkChatTheme extends ChatTheme {
     super.errorColor = error,
     super.errorIcon,
     super.inputBackgroundColor = secondaryDark,
+    super.inputSurfaceTintColor = secondaryDark,
+    super.inputElevation = 0,
     super.inputBorderRadius = const BorderRadius.vertical(
       top: Radius.circular(20),
     ),
@@ -514,6 +533,7 @@ class DarkChatTheme extends ChatTheme {
     super.messageBorderRadius = 20,
     super.messageInsetsHorizontal = 20,
     super.messageInsetsVertical = 16,
+    super.messageMinWidth = 440,
     super.primaryColor = primary,
     super.receivedEmojiMessageTextStyle = const TextStyle(fontSize: 40),
     super.receivedMessageBodyBoldTextStyle,
@@ -628,5 +648,6 @@ class DarkChatTheme extends ChatTheme {
       fontWeight: FontWeight.w800,
       height: 1.333,
     ),
+    super.highlightMessageColor,
   });
 }

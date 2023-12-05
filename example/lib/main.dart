@@ -46,21 +46,6 @@ class _ChatPageState extends State<ChatPage> {
     _loadMessages();
   }
 
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        body: Chat(
-          makeMsgStartFromTop: true,
-          messages: _messages,
-          onAttachmentPressed: _handleAttachmentPressed,
-          onMessageTap: _handleMessageTap,
-          onPreviewDataFetched: _handlePreviewDataFetched,
-          onSendPressed: _handleSendPressed,
-          showUserAvatars: true,
-          showUserNames: true,
-          user: _user,
-        ),
-      );
-
   void _addMessage(types.Message message) {
     setState(() {
       _messages.insert(0, message);
@@ -236,4 +221,27 @@ class _ChatPageState extends State<ChatPage> {
       _messages = messages;
     });
   }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        body: Chat(
+          messages: _messages,
+          onAttachmentPressed: _handleAttachmentPressed,
+          onMessageTap: _handleMessageTap,
+          onPreviewDataFetched: _handlePreviewDataFetched,
+          onSendPressed: _handleSendPressed,
+          showUserAvatars: true,
+          showUserNames: true,
+          user: _user,
+          isLeftStatus: true,
+          theme: const DefaultChatTheme(
+            seenIcon: Text(
+              'read',
+              style: TextStyle(
+                fontSize: 10.0,
+              ),
+            ),
+          ),
+        ),
+      );
 }
