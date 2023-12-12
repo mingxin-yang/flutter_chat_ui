@@ -20,9 +20,9 @@ class ImageGallery extends StatelessWidget {
 
   /// See [Chat.imageProviderBuilder].
   final ImageProvider Function({
-    required String uri,
-    required Map<String, String>? imageHeaders,
-    required Conditional conditional,
+  required String uri,
+  required Map<String, String>? imageHeaders,
+  required Conditional conditional,
   })? imageProviderBuilder;
 
   /// Images to show in the gallery.
@@ -37,7 +37,8 @@ class ImageGallery extends StatelessWidget {
   /// Page controller for the image pages.
   final PageController pageController;
 
-  Widget _imageGalleryLoadingBuilder(ImageChunkEvent? event) => Center(
+  Widget _imageGalleryLoadingBuilder(ImageChunkEvent? event) =>
+      Center(
         child: SizedBox(
           width: 20,
           height: 20,
@@ -50,35 +51,42 @@ class ImageGallery extends StatelessWidget {
       );
 
   @override
-  Widget build(BuildContext context) => PopScope(
-        onPopInvoked: (didPop) {
-          if (didPop) {
-            onClosePressed();
-          }
-        },
-        child: Dismissible(
-          key: const Key('photo_view_gallery'),
-          direction: DismissDirection.down,
-          onDismissed: (direction) => onClosePressed(),
-          child: GestureDetector(
-            onTap: onClosePressed,
-            child: Stack(
-              children: [
-                PhotoViewGallery.builder(
-                  builder: (BuildContext context, int index) =>
-                      PhotoViewGalleryPageOptions(
-                    imageProvider: imageProviderBuilder != null
-                        ? imageProviderBuilder!(
+  Widget build(BuildContext context) =>
+      PopScope(
+          onPopInvoked: (didPop) {
+            if (didPop) {
+              onClosePressed();
+            }
+          },
+          child: Dismissible(
+            key: const Key('photo_view_gallery'),
+            direction: DismissDirection.down,
+            onDismissed: (direction) => onClosePressed(),
+            child: GestureDetector(
+              onTap: onClosePressed,
+              child: Stack(
+                children: [
+                  PhotoViewGallery.builder(
+                    builder: (BuildContext context, int index) =>
+                        PhotoViewGalleryPageOptions(
+                          imageProvider: imageProviderBuilder != null
+                              ? imageProviderBuilder!(
                             uri: images[index].uri,
                             imageHeaders: imageHeaders,
                             conditional: Conditional(),
                           )
-                        : Conditional().getProvider(
+                              : Conditional().getProvider(
                             images[index].uri,
                             headers: imageHeaders,
                           ),
-                    minScale: options.minScale,
-                    maxScale: options.maxScale,
+                          minScale: options.minScale,
+                          maxScale: options.maxScale,
+                        ),
+                    itemCount: images.length,
+                    loadingBuilder: (context, event) =>
+                        _imageGalleryLoadingBuilder(event),
+                    pageController: pageController,
+                    scrollPhysics: const ClampingScrollPhysics(),
                   ),
                   Positioned.directional(
                     end: 16,
@@ -89,13 +97,12 @@ class ImageGallery extends StatelessWidget {
                       onPressed: onClosePressed,
                     ),
                   ),
-                ),
-                ...options.imageOptions(context,images,pageController),
-              ],
+                  ...options.imageOptions(context, images, pageController),
+                ],
+              ),
             ),
-          ),
-        )
-      ),
+          )
+      );
 }
 
 class ImageGalleryOptions {
